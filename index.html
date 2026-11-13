@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f5f5f7" />
+    <meta
+      name="description"
+      content="Study Planner — a daily study timetable with progress, streaks, a weekly overview and customizable appearance."
+    />
+    <title>Study Planner — Daily Study Schedule</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      // Apply theme, accent and typography before React renders so the first
+      // paint already matches the saved settings (no flash of the defaults).
+      ;(function () {
+        var defaults = {
+          theme: 'system',
+          accent: 'blue',
+          font: 'inter',
+          fontSize: 'medium',
+          headingWeight: 'semibold',
+          bodyWeight: 'normal',
+        }
+        var allowed = {
+          theme: ['light', 'dark', 'system'],
+          accent: [
+            'blue',
+            'indigo',
+            'violet',
+            'emerald',
+            'rose',
+            'orange',
+            'teal',
+          ],
+          font: [
+            'inter',
+            'space-grotesk',
+            'ibm-plex-sans',
+            'dm-sans',
+            'plus-jakarta-sans',
+          ],
+          fontSize: ['small', 'medium', 'large'],
+          headingWeight: ['medium', 'semibold', 'bold'],
+          bodyWeight: ['normal', 'medium'],
+        }
+        var settings = defaults
+
+        try {
+          var raw = localStorage.getItem('study-schedule:appearance:v1')
+          if (raw) {
+            var saved = JSON.parse(raw)
+            for (var key in allowed) {
+              if (
+                saved &&
+                allowed[key].indexOf(saved[key]) !== -1
+              ) {
+                settings[key] = saved[key]
+              }
+            }
+          } else {
+            var legacy = localStorage.getItem('study-schedule:theme')
+            if (legacy === 'light' || legacy === 'dark') settings.theme = legacy
+          }
+        } catch (error) {
+          // Storage may be blocked; keep the defaults.
+        }
+
+        var root = document.documentElement
+        var dark =
+          settings.theme === 'dark' ||
+          (settings.theme === 'system' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+        root.classList.toggle('dark', dark)
+        root.style.colorScheme = dark ? 'dark' : 'light'
+        root.setAttribute('data-accent', settings.accent)
+        root.setAttribute('data-font', settings.font)
+        root.setAttribute('data-font-size', settings.fontSize)
+        root.setAttribute('data-heading-weight', settings.headingWeight)
+        root.setAttribute('data-body-weight', settings.bodyWeight)
+
+        var meta = document.querySelector('meta[name="theme-color"]')
+        if (meta) meta.setAttribute('content', dark ? '#09090b' : '#f5f5f7')
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
