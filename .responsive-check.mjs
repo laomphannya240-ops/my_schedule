@@ -4,7 +4,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 
 const chrome = spawn('C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', [
   '--headless=new', '--disable-gpu', '--no-sandbox', '--remote-debugging-port=9223',
-  '--remote-allow-origins=*', '--user-data-dir=D:\\Project\\study-schedule\\.responsive-check\\profile-final',
+  '--remote-allow-origins=*', '--user-data-dir=D:\\Project\\study-schedule\\.responsive-check\\profile-final6',
   'about:blank',
 ], { stdio: 'ignore' })
 
@@ -59,9 +59,28 @@ try {
       console.log('ancestors', JSON.stringify(details))
     }
   }
+  await send('Emulation.setDeviceMetricsOverride', { width: 320, height: 1100, deviceScaleFactor: 1, mobile: false })
+  const capturePage = async (name) => {
+    const metrics = await evaluate(`({scrollWidth:document.documentElement.scrollWidth,clientWidth:document.documentElement.clientWidth})`)
+    const shot = await send('Page.captureScreenshot', { format: 'png' })
+    await writeFile(`.responsive-check/${name}.png`, Buffer.from(shot.result.data, 'base64'))
+    console.log(name, JSON.stringify(metrics))
+  }
+  await evaluate(`[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Calendar')).click()`)
+  await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Weekly').click()`)
+  await capturePage('weekly-320')
+  await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Monthly').click()`)
+  await capturePage('monthly-320')
+  await evaluate(`[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Settings')).click()`)
+  await capturePage('settings-320')
+  await evaluate(`document.querySelector('header button:last-child').click()`)
+  await capturePage('form-320')
+  console.log('form controls', JSON.stringify(await evaluate(`({dialogWidth:Math.round(document.querySelector('form').getBoundingClientRect().width),inputs:[...document.querySelectorAll('form input,form select,form textarea')].map(e=>Math.round(e.getBoundingClientRect().height)),colorTargets:[...document.querySelectorAll('form button[aria-label]')].map(e=>Math.round(e.getBoundingClientRect().height))})`)))
+  await evaluate(`document.querySelector('form button[type=button]').click()`)
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false })
+  await evaluate(`[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes('Dashboard')).click()`)
   const baseCount = await evaluate(`JSON.parse(localStorage.getItem('study-schedule:planner:v1')||'[]').length`)
-  await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent.includes('New schedule')).click()`)
+  await evaluate(`document.querySelector('header button:last-child').click()`)
   await evaluate(`(()=>{const f=document.querySelector('form');const i=f.querySelectorAll('input');const set=(e,v)=>{const p=Object.getPrototypeOf(e);Object.getOwnPropertyDescriptor(p,'value').set.call(e,v);e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))};set(i[0],'Viewport smoke test');set(i[1],'Testing')})()`)
   await evaluate(`[...document.querySelectorAll('form button')].find(b=>b.textContent.includes('Save schedule')).click()`)
   await delay(100)

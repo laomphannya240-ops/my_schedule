@@ -236,7 +236,7 @@ function ScheduleForm({ initial, onSave, onCancel, t }) {
     });
   };
   const input =
-    "mt-1 min-h-11 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-sm text-ink outline-none transition focus:border-accent";
+    "mt-1 min-h-11 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-base text-ink outline-none transition focus:border-accent sm:text-sm";
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-sm sm:items-center sm:p-4"
@@ -244,7 +244,9 @@ function ScheduleForm({ initial, onSave, onCancel, t }) {
     >
       <form
         onSubmit={submit}
-        className="max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-t-3xl border border-line bg-surface p-5 shadow-2xl sm:rounded-3xl sm:p-7"
+        role="dialog"
+        aria-modal="true"
+        className="max-h-[92dvh] w-full max-w-xl overflow-y-auto overscroll-contain rounded-t-3xl border border-line bg-surface p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl sm:rounded-3xl sm:p-7"
       >
         <div className="mb-6 flex items-start justify-between">
           <div>
@@ -268,11 +270,11 @@ function ScheduleForm({ initial, onSave, onCancel, t }) {
           <label className="text-xs font-semibold text-ink-muted sm:col-span-2">
             {t.title}
             <input
-              autoFocus
               value={form.title}
               onChange={field("title")}
               className={input}
               maxLength={100}
+              required
             />
           </label>
           <label className="text-xs font-semibold text-ink-muted">
@@ -282,6 +284,7 @@ function ScheduleForm({ initial, onSave, onCancel, t }) {
               onChange={field("subject")}
               className={input}
               maxLength={60}
+              required
             />
           </label>
           <label className="text-xs font-semibold text-ink-muted">
@@ -337,15 +340,17 @@ function ScheduleForm({ initial, onSave, onCancel, t }) {
           </label>
           <label className="text-xs font-semibold text-ink-muted sm:col-span-2">
             {t.color}
-            <div className="mt-2 flex gap-3">
+            <div className="mt-2 flex flex-wrap gap-2">
               {Object.entries(colors).map(([name, cls]) => (
                 <button
                   type="button"
                   key={name}
                   onClick={() => setForm((old) => ({ ...old, color: name }))}
                   aria-label={name}
-                  className={`${cls} size-7 rounded-full ring-offset-2 ${form.color === name ? "ring-2 ring-accent" : ""}`}
-                />
+                  className={`grid size-9 shrink-0 place-items-center rounded-full ring-offset-2 sm:size-11 ${form.color === name ? "ring-2 ring-accent" : ""}`}
+                >
+                  <span aria-hidden="true" className={`size-7 rounded-full ${cls}`} />
+                </button>
               ))}
             </div>
           </label>
@@ -365,15 +370,15 @@ function ScheduleForm({ initial, onSave, onCancel, t }) {
             {error}
           </p>
         )}
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="sticky bottom-0 -mx-4 mt-5 flex justify-end gap-2 border-t border-line bg-surface/95 px-4 pt-3 backdrop-blur sm:static sm:mx-0 sm:mt-6 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl px-4 py-2.5 text-sm font-medium text-ink-muted hover:bg-inset"
+            className="min-h-11 flex-1 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-muted hover:bg-inset sm:flex-none sm:px-4"
           >
             {t.cancel}
           </button>
-          <button className="rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast shadow-lg shadow-accent/20">
+          <button type="submit" className="min-h-11 flex-1 rounded-xl bg-accent px-3 py-2.5 text-sm font-semibold text-accent-contrast shadow-lg shadow-accent/20 sm:flex-none sm:px-5">
             {t.save}
           </button>
         </div>
@@ -686,7 +691,7 @@ export default function App() {
         <button
           onClick={toggleTheme}
           aria-label={t.theme}
-          className="rounded-xl border border-line bg-surface p-2.5 text-ink-muted transition hover:text-accent"
+          className="grid min-h-11 min-w-11 place-items-center rounded-xl border border-line bg-surface p-2.5 text-ink-muted transition hover:text-accent"
         >
           <Icon
             name={resolvedTheme === "dark" ? "sun" : "moon"}
@@ -695,6 +700,8 @@ export default function App() {
         </button>
         <button
           onClick={() => setModal(emptyForm(selectedDate))}
+          aria-label={t.add}
+          title={t.add}
           className="flex items-center gap-2 rounded-xl bg-accent px-3.5 py-2.5 text-sm font-semibold text-accent-contrast shadow-lg shadow-accent/20 transition hover:-translate-y-0.5"
         >
           <Icon name="plus" className="size-4" />
@@ -915,7 +922,7 @@ export default function App() {
                             setCalendarMode(mode);
                             setView("calendar");
                           }}
-                          className={`min-h-10 flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold sm:flex-none sm:px-2.5 ${calendarMode === mode ? "bg-surface text-accent shadow-sm" : "text-ink-muted"}`}
+                          className={`min-h-11 flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold sm:flex-none sm:px-2.5 ${calendarMode === mode ? "bg-surface text-accent shadow-sm" : "text-ink-muted"}`}
                         >
                           {t[mode]}
                         </button>
