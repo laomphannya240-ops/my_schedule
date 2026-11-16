@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Check,
@@ -20,7 +20,6 @@ import { usePlannerData } from "./hooks/usePlannerData";
 import { addDays, toDateKey } from "./lib/dates";
 
 const todayKey = toDateKey(new Date());
-const todayDate = new Date();
 const defaults = { language: "en", weekStarts: "monday", timeFormat: "24" };
 const words = {
   en: {
@@ -288,15 +287,6 @@ function ScheduleForm({ initial, onSave, onCancel, t }) {
             />
           </label>
           <label className="text-xs font-semibold text-ink-muted">
-            {t.date}
-            <input
-              type="date"
-              value={form.date}
-              onChange={field("date")}
-              className={input}
-            />
-          </label>
-          <label className="text-xs font-semibold text-ink-muted">
             {t.start}
             <input
               type="time"
@@ -324,18 +314,6 @@ function ScheduleForm({ initial, onSave, onCancel, t }) {
               <option value="low">{t.low}</option>
               <option value="medium">{t.medium}</option>
               <option value="high">{t.high}</option>
-            </select>
-          </label>
-          <label className="text-xs font-semibold text-ink-muted">
-            {t.status}
-            <select
-              value={form.status}
-              onChange={field("status")}
-              className={input}
-            >
-              <option value="pending">{t.pending}</option>
-              <option value="in-progress">{t.inProgress}</option>
-              <option value="completed">{t.completed}</option>
             </select>
           </label>
           <label className="text-xs font-semibold text-ink-muted sm:col-span-2">
@@ -484,8 +462,19 @@ export default function App() {
     toggleTheme,
     update: updateAppearance,
   } = useAppearance();
-  const { schedules, add, update, remove, duplicate, replace, reset } =
-    usePlannerData();
+  const {
+    schedules,
+    progress,
+    statusFor,
+    setStatus,
+    replaceProgress,
+    add,
+    update,
+    remove,
+    duplicate,
+    replace,
+    reset,
+  } = usePlannerData();
   const [prefs, setPrefs] = useLocalStorage(
     "study-schedule:planner-settings:v1",
     defaults,
@@ -499,29 +488,51 @@ export default function App() {
   const [dayFilter, setDayFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const importRef = useRef(null);
+  const [currentToday, setCurrentToday] = useState(todayKey);
+  const todayDate = new Date(`${currentToday}T12:00:00`);
+  useEffect(() => {
+    const refreshToday = () => {
+      const nextToday = toDateKey(new Date());
+      if (currentToday === nextToday) return;
+      setSelectedDate((selected) => selected === currentToday ? nextToday : selected);
+      setCurrentToday(nextToday);
+    };
+    const timer = window.setInterval(refreshToday, 60_000);
+    return () => window.clearInterval(timer);
+  }, [currentToday]);
   const t = words[prefs.language === "km" ? "km" : "en"];
   const locale = prefs.language === "km" ? "km-KH" : "en-US";
   const date = new Date(`${selectedDate}T12:00:00`);
   const chosen = useMemo(
     () =>
       schedules
-        .filter((s) => s.date === selectedDate)
+        .map((s) => ({ ...s, date: selectedDate, status: statusFor(s, selectedDate) }))
         .sort((a, b) => a.start.localeCompare(b.start)),
-    [schedules, selectedDate],
+    [schedules, selectedDate, statusFor],
   );
   const todayItems = useMemo(
     () =>
       schedules
-        .filter((s) => s.date === todayKey)
+        .map((s) => ({ ...s, date: currentToday, status: statusFor(s, currentToday) }))
         .sort((a, b) => a.start.localeCompare(b.start)),
-    [schedules],
+    [schedules, currentToday, statusFor],
   );
   const done = todayItems.filter((s) => s.status === "completed").length;
   const percent = todayItems.length
     ? Math.round((done / todayItems.length) * 100)
     : 0;
   const subjects = [...new Set(schedules.map((s) => s.subject))].sort();
+  const filterDate =
+    dayFilter === "all"
+      ? currentToday
+      : keyDate(
+          addDays(
+            new Date(`${currentToday}T12:00:00`),
+            (Number(dayFilter) - new Date(`${currentToday}T12:00:00`).getDay() + 7) % 7,
+          ),
+        );
   const filtered = schedules
+    .map((s) => ({ ...s, date: filterDate, status: statusFor(s, filterDate) }))
     .filter(
       (s) =>
         (!query ||
@@ -539,10 +550,10 @@ export default function App() {
   const week = weekStart(date, prefs.weekStarts);
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(week, i));
   const weeklyPct = (d) => {
-    const items = schedules.filter((s) => s.date === keyDate(d));
+    const items = schedules;
     return items.length
       ? Math.round(
-          (items.filter((s) => s.status === "completed").length /
+          (items.filter((s) => statusFor(s, keyDate(d)) === "completed").length /
             items.length) *
             100,
         )
@@ -555,9 +566,11 @@ export default function App() {
     setModal(null);
   };
   const toggleItem = (item) =>
-    update(item.id, {
-      status: item.status === "completed" ? "pending" : "completed",
-    });
+    setStatus(
+      item,
+      item.date,
+      item.status === "completed" ? "pending" : "completed",
+    );
   const removeItem = (id) => {
     if (window.confirm(t.confirmDelete)) remove(id);
   };
@@ -576,7 +589,7 @@ export default function App() {
     const blob = new Blob(
       [
         JSON.stringify(
-          { version: 1, schedules, settings: prefs, appearance },
+          { version: 2, schedules, progress, settings: prefs, appearance },
           null,
           2,
         ),
@@ -610,6 +623,7 @@ export default function App() {
       )
         throw new Error("invalid");
       replace(list);
+      if (data && !Array.isArray(data)) replaceProgress(data.progress);
       if (data.settings) setPrefs({ ...defaults, ...data.settings });
     } catch {
       window.alert("Invalid planner JSON file.");
@@ -621,12 +635,12 @@ export default function App() {
       reset();
       setPrefs(defaults);
       updateAppearance({ theme: "light" });
-      setSelectedDate(todayKey);
+      setSelectedDate(currentToday);
     }
   };
   const navigate = (page) => {
     setView(page);
-    if (page === "calendar") setSelectedDate(todayKey);
+    if (page === "calendar") setSelectedDate(currentToday);
   };
   const inputClass =
     "min-h-11 rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-base text-ink outline-none focus:border-accent sm:text-sm";
@@ -841,7 +855,7 @@ export default function App() {
                   onClick={() => navigate("calendar")}
                   className="min-h-11 max-w-full self-start whitespace-normal rounded-xl border border-line bg-surface px-4 py-2.5 text-left text-sm font-semibold hover:border-accent/40 sm:self-auto"
                 >
-                  {pretty(new Date(`${todayKey}T12:00:00`), locale, {
+                  {pretty(new Date(`${currentToday}T12:00:00`), locale, {
                     month: "long",
                     day: "numeric",
                     year: "numeric",
@@ -938,7 +952,7 @@ export default function App() {
                         ‹ {t.previous}
                       </button>
                       <button
-                        onClick={() => setSelectedDate(todayKey)}
+                        onClick={() => setSelectedDate(currentToday)}
                         className="min-h-11 whitespace-nowrap rounded-lg border border-line px-2.5 py-1.5 text-xs hover:bg-inset sm:px-3 sm:text-sm"
                       >
                         {t.today}
@@ -1016,14 +1030,12 @@ export default function App() {
                             i + 1,
                           );
                           const ds = keyDate(d);
-                          const count = schedules.filter(
-                            (s) => s.date === ds,
-                          ).length;
+                          const count = schedules.length;
                           return (
                             <button
                               key={ds}
                               onClick={() => setSelectedDate(ds)}
-                              className={`relative min-h-10 rounded-xl text-sm ${ds === selectedDate ? "bg-accent text-accent-contrast" : ds === todayKey ? "border border-accent text-accent" : "hover:bg-inset"}`}
+                              className={`relative min-h-10 rounded-xl text-sm ${ds === selectedDate ? "bg-accent text-accent-contrast" : ds === currentToday ? "border border-accent text-accent" : "hover:bg-inset"}`}
                             >
                               {d.getDate()}
                               {count > 0 && (
@@ -1099,7 +1111,7 @@ export default function App() {
                               {pct}%
                             </span>
                             <span
-                              className={`w-full max-w-9 rounded-t-lg transition-all ${keyDate(d) === todayKey ? "bg-accent" : "bg-accent/35 group-hover:bg-accent/60"}`}
+                              className={`w-full max-w-9 rounded-t-lg transition-all ${keyDate(d) === currentToday ? "bg-accent" : "bg-accent/35 group-hover:bg-accent/60"}`}
                               style={{ height: `${Math.max(5, pct)}%` }}
                             />
                             <span className="text-[10px] font-medium text-ink-muted">
